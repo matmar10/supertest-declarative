@@ -1,0 +1,37 @@
+{
+  "name": "supertest-declarative",
+  "version": "0.0.1",
+  "description": "Declarative method of writing supertest scripts including multi-step REST API tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matmar10/supertest-declarative.git"
+  },
+  "keywords": [
+    "supertest",
+    "mocha",
+    "REST",
+    "API",
+    "unit",
+    "test",
+    "integration",
+    "test"
+  ],
+  "author": "Matthew J. Martin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/matmar10/supertest-declarative/issues"
+  },
+  "homepage": "https://github.com/matmar10/supertest-declarative#readme",
+  "dependencies": {
+    "deepmerge": "^2.1.1",
+    "supertest": "^3.1.0",
+    "supertest-as-promised": "^4.0.2"
+  },
+  "devDependencies": {
+    "body-parser": "^1.18.3"
+  }
+}
