@@ -48,7 +48,6 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
   }
 
   if (expected.body) {
-    console.log('Adding expected body: ', expected.body);
     req.expect(expected.body);
   }
 
@@ -231,7 +230,7 @@ module.exports = function(app, server) {
   const runner = new SupertestDeclarativeSuite(app);
   return function(definition) {
     let shutdownManager;
-    
+
     if (definition.shutdownOnFinish && server) {
       shutdownManager = new GracefulShutdownManager(server);
     }
