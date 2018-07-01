@@ -65,7 +65,7 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
           assert('undefined' !== typeof obj[k], 'Property `' + k + '` is defined');
           // assert RegExp
           if (expectedProperties[k] instanceof RegExp) {
-            assert(expectedProperties[k].match(obj[k]),
+            assert(String(obj[k]).match(expectedProperties[k]),
               'Property `' + k + '` matches expected RegExp format');
             continue;
           }
