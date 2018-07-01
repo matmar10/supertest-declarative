@@ -147,16 +147,18 @@ SupertestDeclarativeSuite.prototype.buildDefinition = function(definition, testD
 };
 
 SupertestDeclarativeSuite.prototype.runRequest = function(definition, testDefininition, requestDefinition, previousResponse, testInstance) {
-  previousResponse = previousResponse || {};
 
   previousResponse.next = requestDefinition;
+
   // run the test.before once before starting each test
-  return runHook(testDefininition, 'before', previousResponse)
+  return runHook(requestDefinition, 'before', previousResponse)
     .then(() => {
+      let msg = `${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`;
+      testInstance.comment(msg);
       return this.runSupertestRequest(requestDefinition);
     })
     .then(res => {
-      return runHook(testDefininition, 'after', res)
+      return runHook(requestDefinition, 'after', res)
         .then(() => {
           return res;
         });
@@ -165,25 +167,23 @@ SupertestDeclarativeSuite.prototype.runRequest = function(definition, testDefini
       testInstance.pass(`${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`);
       return res;
     }, err => {
-      testInstance.fail(`${requestDefinition.method.toUpperCase()} ${requestDefinition.url}: ${err}`);
+      testInstance.fail(`${requestDefinition.method.toUpperCase()} ${requestDefinition.url}: ${err.stack}`);
     });
 };
 
 SupertestDeclarativeSuite.prototype.runEachRequestDefinition = function(definition,
   testDefininition, listOfRequestDefinitions, testInstance) {
-  let previousResponse;
+  let previousResponse = {};
 
   // run the test.before once before starting each test
   return Promise.each(listOfRequestDefinitions, requestDefinition => {
     let def = this.buildDefinition(definition, testDefininition, requestDefinition);
-    let msg = `${def.method.toUpperCase()} ${def.url}`;
-    testInstance.comment(msg);
     return runHook(definition, 'beforeEach')
       .then(() => {
         return this.runRequest(definition, testDefininition, def, previousResponse, testInstance);
       })
       .then((res) => {
-        res = previousResponse;
+        previousResponse = res;
         return runHook(definition, 'afterEach');
       });
   });

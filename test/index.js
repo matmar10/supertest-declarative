@@ -1,6 +1,5 @@
 'use strict';
 
-const Promise = require('bluebird');
 const supertestDeclarative = require('./../');
 
 const initSampleServer = require('./sample-server');
@@ -185,22 +184,34 @@ initSampleServer()
       shutdownOnFinish: true,
       tests: [{
         message: 'Create investor',
-        url: '/investor',
+        url: '/user',
         requests: [{
           method: 'post',
           body: {
             email: 'foo@bar.com',
             password: '1234asdkjasd'
+          },
+          expected: {
+            bodyProperties: {
+              id: /\d+/,
+              email: 'foo@bar.com',
+              password: '1234asdkjasd'
+            }
           }
         }, {
+          before: function (res) {
+            res.next.url += '/' + res.body.id;
+            res.next.expected.bodyProperties.id = res.body.id;
+          },
           method: 'get',
           body: {
             email: 'foo@bar.com',
             password: '1234asdkjasd'
           },
           expected: {
-            body: {
-              'foo': 'bar'
+            bodyProperties: {
+              email: 'foo@bar.com',
+              password: '1234asdkjasd'
             }
           }
         }]

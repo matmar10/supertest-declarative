@@ -35,6 +35,7 @@
     "tape-promise": "^3.0.0"
   },
   "devDependencies": {
-    "body-parser": "^1.18.3"
+    "body-parser": "^1.18.3",
+    "tap-spec": "^5.0.0"
   }
 }
