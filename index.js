@@ -48,6 +48,7 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
   }
 
   if (expected.body) {
+    console.log('Adding expected body: ', expected.body);
     req.expect(expected.body);
   }
 
@@ -136,14 +137,13 @@ SupertestDeclarativeSuite.prototype.buildDefinition = function(definition, testD
   let expected = {};
   expected = merge(expected, definition.expected || {});
   expected = merge(expected, testDefininition.expected || {});
-  expected = merge(expected, requestDefinition.expected || {});
 
   return merge({
     body: body,
-    expected: expected,
     headers: headers,
     method: definition.method || testDefininition.method || requestDefinition.method,
     url: definition.url || testDefininition.url || requestDefinition.url,
+    expected: expected
   }, requestDefinition);
 };
 
@@ -230,10 +230,8 @@ SupertestDeclarativeSuite.prototype.run = function(definition) {
 module.exports = function(app, server) {
   const runner = new SupertestDeclarativeSuite(app);
   return function(definition) {
-
-    const GracefulShutdownManager = require('@moebius/http-graceful-shutdown').GracefulShutdownManager;
-
     let shutdownManager;
+    
     if (definition.shutdownOnFinish && server) {
       shutdownManager = new GracefulShutdownManager(server);
     }
