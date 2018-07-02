@@ -28,26 +28,35 @@ function SupertestDeclarativeSuite(app) {
   this.supertestAgent = supertest(app);
 }
 
-SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expected) {
+SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expected, reqDef, testInstance) {
 
   let key;
 
+  let msg = `${reqDef.method.toUpperCase()} ${reqDef.url}`;
+  if (reqDef.message) {
+    msg += ` (${reqDef.message})`;
+  }
+
   if ('function' === typeof expected.assert) {
     req.expect(expected.assert);
+    testInstance.pass(`${msg} - supertest callback()`);
   }
 
   if (expected.status) {
     req.expect(expected.status);
+    testInstance.pass(`${msg} - status code is ${expected.status}`);
   }
 
   if (expected.headers && 'object' === typeof expected.headers) {
     for (key in expected.headers) {
       req.expect(key, expected.headers[key]);
+      testInstance.pass(`${msg} - header ${key} is '${expected.headers[key]}'`);
     }
   }
 
   if (expected.body) {
     req.expect(expected.body);
+    testInstance.pass(`${msg} - body matches all expected values`);
   }
 
   if (expected.bodyProperties) {
@@ -59,17 +68,21 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
           }
           if (typeof expectedProperties[k] === 'undefined') {
             assert('undefined' === typeof obj[k], 'Property is undefined');
+            testInstance.pass(`${msg} - body property ${k} is undefined`);
             continue;
           }
           assert('undefined' !== typeof obj[k], 'Property `' + k + '` is defined');
+          testInstance.pass(`${msg} - body property ${k} defined`);
           // assert RegExp
           if (expectedProperties[k] instanceof RegExp) {
             assert(String(obj[k]).match(expectedProperties[k]),
               'Property `' + k + '` matches expected RegExp format');
+            testInstance.pass(`${msg} - body property ${k} matches RegExp`);
             continue;
           }
           // assert value equality
           assert(obj[k] === expectedProperties[k], 'Property `' + k + '` equals expected value');
+          testInstance.pass(`${msg} - body property ${k} equals ${obj[k]}`);
         }
       };
 
@@ -77,10 +90,12 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
         for (let i = 0; i < res.body.length; i++) {
           assertProperties(res.body[i], expected.bodyProperties[i]);
         }
+        testInstance.pass(`${msg} - properties of each element in array match expected`);
       }
 
       if ('object' === typeof expected.bodyProperties) {
         assertProperties(res.body, expected.bodyProperties);
+        testInstance.pass(`${msg} - all properties of object match expected`);
         return;
       }
     });
@@ -88,7 +103,7 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
   return req;
 };
 
-SupertestDeclarativeSuite.prototype.runSupertestRequest = function runSupertestRequest(reqDef) {
+SupertestDeclarativeSuite.prototype.runSupertestRequest = function runSupertestRequest(reqDef, testInstance) {
 
   // console.log('Request definition is:', reqDef);
 
@@ -114,7 +129,7 @@ SupertestDeclarativeSuite.prototype.runSupertestRequest = function runSupertestR
   }
 
   if ('object' === typeof reqDef.expected) {
-    this.addSupertestAssertions(req, reqDef.expected);
+    this.addSupertestAssertions(req, reqDef.expected, reqDef, testInstance);
   }
 
   return req.toPromise();
@@ -149,12 +164,15 @@ SupertestDeclarativeSuite.prototype.runRequest = function(definition, testDefini
 
   previousResponse.next = requestDefinition;
 
+  let msg = `${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`;
+  if (requestDefinition.message) {
+    msg += ` - ${requestDefinition.message}`;
+  }
+
   // run the test.before once before starting each test
   return runHook(requestDefinition, 'before', previousResponse)
     .then(() => {
-      // let msg = `${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`;
-      // testInstance.comment(msg);
-      return this.runSupertestRequest(requestDefinition);
+      return this.runSupertestRequest(requestDefinition, testInstance);
     })
     .then(res => {
       return runHook(requestDefinition, 'after', res)
@@ -163,10 +181,11 @@ SupertestDeclarativeSuite.prototype.runRequest = function(definition, testDefini
         });
     })
     .then(res => {
-      testInstance.pass(`${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`);
+      // testInstance.pass(msg);
       return res;
-    }, err => {
-      testInstance.fail(`${requestDefinition.method.toUpperCase()} ${requestDefinition.url}: ${err.stack}`);
+    }, (err) => {
+      testInstance.fail(msg);
+      throw err;
     });
 };
 
