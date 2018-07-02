@@ -1,6 +1,6 @@
 {
   "name": "supertest-declarative",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Declarative method of writing supertest scripts including multi-step REST API tests",
   "main": "index.js",
   "scripts": {
