@@ -6,7 +6,6 @@ const supertest = require('supertest-as-promised');
 const merge = require('deepmerge');
 const tape = require('tape');
 const tapePromise = require('tape-promise').default;
-const GracefulShutdownManager = require('@moebius/http-graceful-shutdown').GracefulShutdownManager;
 
 // enable promises in tape tests
 const test = tapePromise(tape);
@@ -153,8 +152,8 @@ SupertestDeclarativeSuite.prototype.runRequest = function(definition, testDefini
   // run the test.before once before starting each test
   return runHook(requestDefinition, 'before', previousResponse)
     .then(() => {
-      let msg = `${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`;
-      testInstance.comment(msg);
+      // let msg = `${requestDefinition.method.toUpperCase()} ${requestDefinition.url}`;
+      // testInstance.comment(msg);
       return this.runSupertestRequest(requestDefinition);
     })
     .then(res => {
@@ -226,21 +225,9 @@ SupertestDeclarativeSuite.prototype.run = function(definition) {
     });
 };
 
-module.exports = function(app, server) {
+module.exports = function(app) {
   const runner = new SupertestDeclarativeSuite(app);
   return function(definition) {
-    let shutdownManager;
-
-    if (definition.shutdownOnFinish && server) {
-      shutdownManager = new GracefulShutdownManager(server);
-    }
-
-    test.onFinish(function() {
-      if (shutdownManager) {
-        shutdownManager.terminate();
-      }
-    });
-
     return runner.run(definition);
   };
 };
