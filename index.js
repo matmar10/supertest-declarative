@@ -10,6 +10,45 @@ const tapePromise = require('tape-promise').default;
 // enable promises in tape tests
 const test = tapePromise(tape);
 
+
+function assertProperty(expectedPropertyName, expectedValue, actualValue, testInstance, msgPrefix) {
+  if ('undefined' === typeof expectedValue) {
+    assert('undefined' === typeof expectedValue, `Property '${expectedPropertyName}' is undefined`);
+    testInstance.equal('undefined', typeof expectedValue, `${msgPrefix} - typeof body property ${expectedPropertyName} is undefined`);
+    return;
+  }
+
+  // assert existence
+  assert('undefined' !== typeof expectedValue, `roperty '${expectedPropertyName}' is defined`);
+  testInstance.notEqual('undefined', typeof expectedValue, `${msgPrefix} - typeof body property ${expectedPropertyName} is defined`);
+
+  // assert RegExp
+  if (expectedValue instanceof RegExp) {
+    testInstance.ok(String(actualValue).match(expectedValue), `${msgPrefix} - body property ${expectedPropertyName} matches RegExp`);
+    return;
+  }
+
+  // recurisvely assert array values
+  if (Array.isArray(expectedValue)) {
+    testInstance.ok(Array.isArray(actualValue), `${msgPrefix} - body property ${expectedPropertyName} is an array`);
+    expectedValue.forEach((expectedSubValue, i) => {
+      assertProperty(i, expectedSubValue, actualValue[i], testInstance, msgPrefix);
+    });
+    return;
+  }
+
+  // recursively assert object values
+  if ('object' === typeof expectedValue) {
+    for (let subKey in expectedValue) {
+      assertProperty(subKey, expectedValue[subKey], actualValue[subKey], testInstance, msgPrefix);
+    }
+    return;
+  }
+
+  // assert value equality
+  testInstance.equal(actualValue, expectedValue, `${msgPrefix} - body property ${expectedPropertyName} equals expected value`);
+}
+
 function runHook(def, methodName, argument) {
 
   if (!def[methodName] || 'function' !== typeof def[methodName]) {
@@ -38,65 +77,48 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
   }
 
   if ('function' === typeof expected.assert) {
-    req.expect(expected.assert);
-    testInstance.pass(`${msg} - supertest callback()`);
+    testInstance.doesNotThrow(function() {
+      req.expect(expected.assert);
+    }, `${msg} - supertest assert()`);
   }
 
   if (expected.status) {
-    req.expect(expected.status);
-    testInstance.pass(`${msg} - status code is ${expected.status}`);
+    testInstance.doesNotThrow(function() {
+      req.expect(expected.status);
+    }, `${msg} - status code is ${expected.status}`);
   }
 
   if (expected.headers && 'object' === typeof expected.headers) {
+    const assertHeader = (headerName, expectedHeaderValue) => {
+      testInstance.doesNotThrow(function() {
+        req.expect(headerName, expectedHeaderValue);
+      }, `${msg} - header ${headerName} is ${expectedHeaderValue}`);
+    };
     for (key in expected.headers) {
-      req.expect(key, expected.headers[key]);
-      testInstance.pass(`${msg} - header ${key} is '${expected.headers[key]}'`);
+      assertHeader(key, expected.headers[key]);
     }
   }
 
   if (expected.body) {
-    req.expect(expected.body);
-    testInstance.pass(`${msg} - body matches all expected values`);
+    testInstance.doesNotThrow(function() {
+      req.expect(expected.body);
+    }, `${msg} - body matches expected body`);
   }
 
   if (expected.bodyProperties) {
     req.expect(function(res) {
-      const assertProperties = function(obj, expectedProperties) {
-        for (let k in expectedProperties) {
-          if (!expectedProperties.hasOwnProperty(k)) {
-            continue;
-          }
-          if (typeof expectedProperties[k] === 'undefined') {
-            assert('undefined' === typeof obj[k], 'Property is undefined');
-            testInstance.pass(`${msg} - body property ${k} is undefined`);
-            continue;
-          }
-          assert('undefined' !== typeof obj[k], 'Property `' + k + '` is defined');
-          testInstance.pass(`${msg} - body property ${k} defined`);
-          // assert RegExp
-          if (expectedProperties[k] instanceof RegExp) {
-            assert(String(obj[k]).match(expectedProperties[k]),
-              'Property `' + k + '` matches expected RegExp format');
-            testInstance.pass(`${msg} - body property ${k} matches RegExp`);
-            continue;
-          }
-          // assert value equality
-          assert(obj[k] === expectedProperties[k], 'Property `' + k + '` equals expected value');
-          testInstance.pass(`${msg} - body property ${k} equals ${obj[k]}`);
-        }
-      };
 
       if (Array.isArray(expected.bodyProperties)) {
         for (let i = 0; i < res.body.length; i++) {
-          assertProperties(res.body[i], expected.bodyProperties[i]);
+          assertProperty(i, expected.bodyProperties[i], res.body[i], testInstance, msg);
         }
-        testInstance.pass(`${msg} - properties of each element in array match expected`);
+        // testInstance.pass(`${msg} - properties of each element in array match expected`);
+        return;
       }
 
       if ('object' === typeof expected.bodyProperties) {
-        assertProperties(res.body, expected.bodyProperties);
-        testInstance.pass(`${msg} - all properties of object match expected`);
-        return;
+        assertProperty('body', expected.bodyProperties, res.body, testInstance, msg);
+        // testInstance.pass(`${msg} - all properties of object match expected`);
       }
     });
   }
@@ -104,8 +126,6 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
 };
 
 SupertestDeclarativeSuite.prototype.runSupertestRequest = function runSupertestRequest(reqDef, testInstance) {
-
-  // console.log('Request definition is:', reqDef);
 
   // TODO: assert essentials
   assert(reqDef.method, 'Request definition must contain `method`');
@@ -135,13 +155,7 @@ SupertestDeclarativeSuite.prototype.runSupertestRequest = function runSupertestR
   return req.toPromise();
 };
 
-SupertestDeclarativeSuite.prototype.buildDefinition = function(definition, testDefininition,
-  requestDefinition) {
-  let body = {};
-  body = merge(body, definition.body || {});
-  body = merge(body, testDefininition.body || {});
-  body = merge(body, requestDefinition.body || {});
-
+SupertestDeclarativeSuite.prototype.buildDefinition = function(definition, testDefininition, requestDefinition) {
   let headers = {};
   headers = merge(headers, definition.headers || {});
   headers = merge(headers, testDefininition.headers || {});
@@ -151,11 +165,13 @@ SupertestDeclarativeSuite.prototype.buildDefinition = function(definition, testD
   expected = merge(expected, definition.expected || {});
   expected = merge(expected, testDefininition.expected || {});
 
+  // don't merge body twice
+  requestDefinition.body = definition.body || testDefininition.body || requestDefinition.body;
+
   return merge({
-    body: body,
-    headers: headers,
     method: definition.method || testDefininition.method || requestDefinition.method,
     url: definition.url || testDefininition.url || requestDefinition.url,
+    headers: headers,
     expected: expected
   }, requestDefinition);
 };
@@ -179,13 +195,6 @@ SupertestDeclarativeSuite.prototype.runRequest = function(definition, testDefini
         .then(() => {
           return res;
         });
-    })
-    .then(res => {
-      // testInstance.pass(msg);
-      return res;
-    }, (err) => {
-      testInstance.fail(msg);
-      throw err;
     });
 };
 
@@ -203,6 +212,10 @@ SupertestDeclarativeSuite.prototype.runEachRequestDefinition = function(definiti
       .then((res) => {
         previousResponse = res;
         return runHook(definition, 'afterEach');
+      }, err => {
+        err.definition = def;
+        testInstance.fail(`Request failed with error (${err}): ${JSON.stringify(def)}`);
+        return Promise.reject(err);
       });
   });
 };
@@ -222,7 +235,9 @@ SupertestDeclarativeSuite.prototype.runTest = function(definition, testDefininit
 SupertestDeclarativeSuite.prototype.runEachTest = function(definition, listOfTests) {
   // run the test.before once before starting each test
   listOfTests.forEach(testDefininition => {
-    test(testDefininition.message, (testInstance) => {
+    const msg = (definition.message) ? `${definition.message}: ${testDefininition.message}` :
+      testDefininition.message;
+    test(msg, (testInstance) => {
       return runHook(definition, 'beforeEach')
         .then(() => {
           return this.runTest(definition, testDefininition, testInstance);
