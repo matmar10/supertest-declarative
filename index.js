@@ -144,7 +144,10 @@ SupertestDeclarativeSuite.prototype.runSupertestRequest = function runSupertestR
     }
   }
 
-  if ('object' === typeof reqDef.body) {
+  if ('object' === typeof reqDef.body ||
+    'string' === typeof reqDef.body ||
+    'boolean' === reqDef.body ||
+    'number' === reqDef.body) {
     req.send(reqDef.body);
   }
 
