@@ -6,6 +6,7 @@ const supertest = require('supertest-as-promised');
 const merge = require('deepmerge');
 const tape = require('tape');
 const tapePromise = require('tape-promise').default;
+const util = require('util');
 
 // enable promises in tape tests
 const test = tapePromise(tape);
@@ -64,7 +65,11 @@ function runHook(def, methodName, argument) {
 }
 
 function SupertestDeclarativeSuite(app) {
-  this.supertestAgent = supertest(app);
+  if (app) {
+    this.supertestAgent = supertest(app);
+  } else {
+    this.supertestAgent = app;
+  }
 }
 
 SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expected, reqDef, testInstance) {
@@ -122,6 +127,7 @@ SupertestDeclarativeSuite.prototype.addSupertestAssertions = function(req, expec
       }
     });
   }
+
   return req;
 };
 
@@ -217,7 +223,22 @@ SupertestDeclarativeSuite.prototype.runEachRequestDefinition = function(definiti
         return runHook(definition, 'afterEach');
       }, err => {
         err.definition = def;
-        testInstance.fail(`Request failed with error (${err}): ${JSON.stringify(def)}`);
+        const body = (err.response) ? util.inspect(err.response.body, { depth: null }) :
+          'no response';
+        const headers = (err.response) ? util.inspect(err.response.headers, { depth: null }) :
+          'no response';
+        testInstance.fail(`Request failed with error (${err}):
+
+${JSON.stringify(def)}
+
+-- response body --
+${body}
+
+-- headers --
+${headers}
+
+`);
+
         return Promise.reject(err);
       });
   });
@@ -231,15 +252,20 @@ SupertestDeclarativeSuite.prototype.runTest = function(definition, testDefininit
     })
     .then(() => {
       return runHook(testDefininition, 'after');
-    })
-    .then(() => testInstance.end(), err => testInstance.end(err));
+    });
 };
 
 SupertestDeclarativeSuite.prototype.runEachTest = function(definition, listOfTests) {
   // run the test.before once before starting each test
-  listOfTests.forEach(testDefininition => {
+  return Promise.each(listOfTests, testDefininition => {
     const msg = (definition.message) ? `${definition.message}: ${testDefininition.message}` :
       testDefininition.message;
+    let resolve;
+    let reject;
+    const promise = new Promise((_resolve_, _reject_) => {
+      resolve = _resolve_;
+      reject = _reject_;
+    });
     test(msg, (testInstance) => {
       return runHook(definition, 'beforeEach')
         .then(() => {
@@ -247,8 +273,11 @@ SupertestDeclarativeSuite.prototype.runEachTest = function(definition, listOfTes
         })
         .then(() => {
           return runHook(definition, 'afterEach');
-        });
-    });
+        })
+        .then(() => testInstance.end(), (err) => testInstance.end(err))
+        .then(resolve, reject);
+    }, { concurrency: 1 });
+    return promise;
   });
 };
 
