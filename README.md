@@ -41,19 +41,17 @@ run({
   },
 
   // things to add to each and every request in this suite by default
-  common: [{
 
-    // headers added to each and every request in this suite
-    // can be overwritten in individual tests or requests
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type', 'application/json'
-    },
+  // headers added to each and every request in this suite
+  // can be overwritten in individual tests or requests
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type', 'application/json'
+  },
 
-    // url for all requests in this suite
-    // can be overwritten in individual tests or requests
-    url: '/users'
-  }],
+  // url for all requests in this suite
+  // can be overwritten in individual tests or requests
+  url: '/users'
 
 
   // list of tests to run
